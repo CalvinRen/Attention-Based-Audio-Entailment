@@ -1,0 +1,34 @@
+# Configuration parameters
+
+# Data paths
+train_csv: '/home/ubuntu/Attention_Based_Audio_Entailment/AudioEntailment_Dataset/clotho_development_gpt4.csv'
+val_csv: '/home/ubuntu/Attention_Based_Audio_Entailment/AudioEntailment_Dataset/clotho_evaluation_gpt4.csv'
+test_csv: '/home/ubuntu/Attention_Based_Audio_Entailment/AudioEntailment_Dataset/clotho_validation_gpt4.csv'
+
+train_audio_dir: '/home/ubuntu/Attention_Based_Audio_Entailment/data/development'
+val_audio_dir: '/home/ubuntu/Attention_Based_Audio_Entailment/data/evaluation'
+test_audio_dir: '/home/ubuntu/Attention_Based_Audio_Entailment/data/validation'
+
+# Training parameters
+batch_size: 128
+learning_rate: 0.0001
+num_epochs: 20
+hidden_dim: 512
+num_classes: 3
+# ======== mlp ========
+audio_embed_dim: 1024
+text_embed_dim: 1024
+
+# Model saving path
+model_save_path: '/home/ubuntu/Attention_Based_Audio_Entailment/checkpoints/best_model.pth'
+
+# Other configurations
+use_cuda: True
+
+# Attention model parameters
+embed_dim: 1024           # Dimension of the input embeddings
+attention_dim: 128       # Dimension of the attention model
+num_heads: 4             # Number of attention heads
+num_layers: 2            # Number of transformer encoder layers
+dim_feedforward: 2048    # Dimension of the feedforward network in the transformer
+dropout: 0.1             # Dropout rate
