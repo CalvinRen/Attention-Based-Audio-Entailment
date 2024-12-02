@@ -9,21 +9,19 @@ train_audio_dir: '/home/ubuntu/Attention_Based_Audio_Entailment/data/development
 val_audio_dir: '/home/ubuntu/Attention_Based_Audio_Entailment/data/evaluation'
 test_audio_dir: '/home/ubuntu/Attention_Based_Audio_Entailment/data/validation'
 
+# Model saving path
+model_save_path: '/home/ubuntu/Attention_Based_Audio_Entailment/checkpoints/best_model.pth'
+
 # Training parameters
 batch_size: 128
 learning_rate: 0.0001
 num_epochs: 20
 hidden_dim: 512
 num_classes: 3
+
 # ======== mlp ========
 audio_embed_dim: 1024
 text_embed_dim: 1024
-
-# Model saving path
-model_save_path: '/home/ubuntu/Attention_Based_Audio_Entailment/checkpoints/best_model.pth'
-
-# Other configurations
-use_cuda: True
 
 # Attention model parameters
 embed_dim: 1024           # Dimension of the input embeddings

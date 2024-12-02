@@ -1,8 +1,7 @@
 import torch.nn as nn
 
-# Define the model
 class AudioTextClassifier(nn.Module):
-    def __init__(self, input_dim, hidden_dim=256, num_classes=3):
+    def __init__(self, input_dim, hidden_dim, num_classes):
         super(AudioTextClassifier, self).__init__()
         self.classifier = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -10,6 +9,5 @@ class AudioTextClassifier(nn.Module):
             nn.Linear(hidden_dim, num_classes)
         )
 
-    def forward(self, sample_embeddings):
-        logits = self.classifier(sample_embeddings)
-        return logits
+    def forward(self, x):
+        return self.classifier(x)

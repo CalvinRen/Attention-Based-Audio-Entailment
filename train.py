@@ -4,23 +4,23 @@ from sklearn.metrics import f1_score
 
 def process_embeddings_mlp(clap_model, audio_files, captions_list, texts, device):
     # Generate audio embeddings
-    audio_embeddings = clap_model.get_audio_embeddings(audio_files, resample=True).to(device)
-    # audio_embeddings shape: [batch_size, 1024]
-
+    audio_embeddings = clap_model.get_audio_embeddings(audio_files).to(device)
+    # Add an extra dimension to match captions' dimension
+    audio_embeddings = audio_embeddings.unsqueeze(1)  # Shape: [batch_size, 1, embed_dim]
     # Generate caption embeddings
     caption_embeddings = []
-    for k in range(len(audio_files)):
-        audio_caption = [captions[k] for captions in captions_list]
-        cap_embeds = clap_model.get_text_embeddings(audio_caption).to(device)
+    for captions in captions_list:
+        cap_embeds = clap_model.get_text_embeddings(captions).to(device)  # [num_captions, embed_dim]
         cap_embeds = cap_embeds.mean(dim=0, keepdim=True)
         caption_embeddings.append(cap_embeds)
-    caption_embeddings = torch.cat(caption_embeddings, dim=0)
+    caption_embeddings = torch.stack(caption_embeddings).to(device)  # Shape: [batch_size, 1, embed_dim]
 
+    # Flatten caption_embeddings to 2D
+    caption_embeddings_flat = caption_embeddings.view(caption_embeddings.size(0), -1)  # Shape: [batch_size, embed_dim]
     # Generate text embeddings
-    text_embeddings = clap_model.get_text_embeddings(texts).to(device)
-
-    # Concatenate all embeddings
-    sample_embeddings = torch.cat([audio_embeddings, caption_embeddings, text_embeddings], dim=1)
+    text_embeddings = clap_model.get_text_embeddings(texts).to(device)  # Shape: [batch_size, embed_dim]
+    # Concatenate all embeddings after flattening captions
+    sample_embeddings = torch.cat([audio_embeddings.squeeze(1), caption_embeddings_flat, text_embeddings], dim=1)  # Shape: [batch_size, embed_dim + num_captions * embed_dim + embed_dim]
 
     return sample_embeddings
 
@@ -33,8 +33,9 @@ def process_embeddings_attention(clap_model, audio_files, captions_list, texts, 
     caption_embeddings = []
     for captions in captions_list:
         cap_embeds = clap_model.get_text_embeddings(captions).to(device)  # [num_captions, embed_dim]
+        cap_embeds = cap_embeds.mean(dim=0, keepdim=True)
         caption_embeddings.append(cap_embeds)
-    caption_embeddings = torch.stack(caption_embeddings).to(device)  # [batch_size, num_captions, embed_dim]
+    caption_embeddings = torch.stack(caption_embeddings).to(device)  # [batch_size, 1, embed_dim]
     
     # Generate hypothesis embeddings
     text_embeddings = clap_model.get_text_embeddings(texts).to(device)  # [batch_size, embed_dim]

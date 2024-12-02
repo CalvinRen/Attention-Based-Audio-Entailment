@@ -35,7 +35,7 @@ def main():
 
     # Main training and validation loop with test evaluation
     try:
-        clap_model = CLAP(version='2023', use_cuda=config['use_cuda'])
+        clap_model = CLAP(version='2023', use_cuda=True)
     except Exception as e:
         print(f"Error initializing CLAP model: {e}")
         return
@@ -46,11 +46,14 @@ def main():
         print(f"DataLoader preparation error: {ve}")
         return
 
-    device = torch.device('cuda' if torch.cuda.is_available() and config['use_cuda'] else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Model selection
     if args.model == 'mlp':
-        model_input_dim = config['audio_embed_dim'] + config['text_embed_dim'] * 2  # 1024 * 3 = 3072
+        audio_embed_dim = config['audio_embed_dim']  # Example: 1024
+        text_embed_dim = config['text_embed_dim']   # Example: 1024
+        
+        model_input_dim = audio_embed_dim + text_embed_dim + text_embed_dim  # Dynamically compute input size
         model = AudioTextClassifier(model_input_dim, config['hidden_dim'], config['num_classes'])
     elif args.model == 'attention':
         model = AttentionBasedModel(config)
