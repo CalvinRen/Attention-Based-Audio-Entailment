@@ -1,2 +1,6 @@
 data/
 AudioEntailment_Dataset/
+checkpoints/
+wandb/
+.gitignore
+__pycache__/

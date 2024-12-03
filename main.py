@@ -5,6 +5,7 @@ import torch.multiprocessing as mp
 import gc
 import argparse
 import yaml
+import wandb
 
 from msclap import CLAP
 from train import train, validate, test
@@ -27,6 +28,15 @@ def main():
     # Load configuration
     with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
+
+    # Initialize W&B
+    if args.mode == 'train':
+        wandb.init(
+            project='attention-based-audio-text-entailment',
+            config=config,
+            name=config['wandb_run_name']
+        )
+        wandb.config.update(config)
 
     # Set the start method to 'spawn' for multiprocessing
     mp.set_start_method('spawn', force=True)
@@ -63,7 +73,7 @@ def main():
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'])
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config['learning_rate'], weight_decay=1e-2)
     scaler = torch.cuda.amp.GradScaler()
 
     if args.mode == 'train':
@@ -71,13 +81,39 @@ def main():
         best_val_f1 = 0.0
 
         for epoch in range(config['num_epochs']):
-            print(f"\nEpoch {epoch+1}/{config['num_epochs']}")
-            train_loss, train_acc = train(model, train_loader, clap_model, optimizer, criterion, scaler, device, args.model)
-            print(f"Training Loss: {train_loss:.4f}, Accuracy: {train_acc * 100:.2f}%")
+            print(f"\nEpoch {epoch + 1}/{config['num_epochs']}")
 
-            val_loss, val_acc, val_f1 = validate(model, val_loader, clap_model, criterion, device, args.model)
-            print(f"Validation Loss: {val_loss:.4f}, Accuracy: {val_acc * 100:.2f}%, F1 Score: {val_f1:.4f}")
+            train_loss, train_precision, train_recall, train_f1, train_accuracy = train(
+                model, train_loader, clap_model, optimizer, criterion, scaler, device, args.model, epoch
+            )
+            print(f"Train Loss: {train_loss:.4f}, Precision: {train_precision:.4f}, Recall: {train_recall:.4f}, F1: {train_f1:.4f}, Accuracy: {train_accuracy:.4f}")
 
+            # Log training metrics to WandB
+            wandb.log({
+                'train_loss': train_loss,
+                'train_precision': train_precision,
+                'train_recall': train_recall,
+                'train_f1': train_f1,
+                'train_accuracy': train_accuracy,
+                'epoch': epoch + 1
+            })
+
+            val_loss, val_precision, val_recall, val_f1, val_accuracy = validate(
+                model, val_loader, clap_model, criterion, device, args.model, epoch
+            )
+            print(f"Validation Loss: {val_loss:.4f}, Precision: {val_precision:.4f}, Recall: {val_recall:.4f}, F1: {val_f1:.4f}, Accuracy: {val_accuracy:.4f}")
+
+            # Log validation metrics to WandB
+            wandb.log({
+                'val_loss': val_loss,
+                'val_precision': val_precision,
+                'val_recall': val_recall,
+                'val_f1': val_f1,
+                'val_accuracy': val_accuracy,
+                'epoch': epoch + 1
+            })
+
+            # Save metrics and models as needed
             if val_f1 > best_val_f1:
                 best_val_f1 = val_f1
                 best_model = model.state_dict()
@@ -90,6 +126,8 @@ def main():
             model.load_state_dict(best_model)
             print("Best model loaded based on validation F1 score.")
 
+    wandb.finish()
+
     if args.mode == 'test' or (args.mode == 'train' and best_model):
         if args.mode == 'test':
             # Load the best model
@@ -101,8 +139,8 @@ def main():
                 return
 
         # Test the best model on the test set
-        test_loss, test_acc, test_f1 = test(model, test_loader, clap_model, criterion, device, args.model)
-        print(f"Test Loss: {test_loss:.4f}, Accuracy: {test_acc * 100:.2f}%, F1 Score: {test_f1:.4f}")
+        test_loss, test_precision, test_recall, test_f1, test_accuracy = test(model, test_loader, clap_model, criterion, device, args.model)
+        print(f"Test Loss: {test_loss:.4f}, Precision: {test_precision:.4f}, Recall: {test_recall:.4f}, F1: {test_f1:.4f}, Accuracy: {test_accuracy:.4f}") 
 
 if __name__ == "__main__":
     main()

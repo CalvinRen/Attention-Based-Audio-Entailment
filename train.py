@@ -1,6 +1,14 @@
 import torch
 from tqdm import tqdm
-from sklearn.metrics import f1_score
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
+
+def calculate_metrics(labels, preds):
+    precision = precision_score(labels, preds, average='macro')
+    recall = recall_score(labels, preds, average='macro')
+    f1 = f1_score(labels, preds, average='macro')
+    accuracy = accuracy_score(labels, preds)
+    return precision, recall, f1, accuracy
+
 
 def process_embeddings_mlp(clap_model, audio_files, captions_list, texts, device):
     # Generate audio embeddings
@@ -43,10 +51,13 @@ def process_embeddings_attention(clap_model, audio_files, captions_list, texts, 
     
     return audio_embeddings, caption_embeddings, text_embeddings
 
-def train(model, dataloader, clap_model, optimizer, criterion, scaler, device, model_type):
+def train(model, dataloader, clap_model, optimizer, criterion, scaler, device, model_type, epoch):
     model.train()
     tloss, tacc = 0, 0
-    batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True, leave=True, position=0, desc='Train')
+    all_labels = []
+    all_preds = []
+
+    batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True, leave=True, position=0, desc=f'Train Epoch {epoch}')
 
     for i, batch_samples in enumerate(dataloader):
         optimizer.zero_grad()
@@ -56,6 +67,7 @@ def train(model, dataloader, clap_model, optimizer, criterion, scaler, device, m
         captions_list = batch_samples['captions']
         texts = batch_samples['text']
         labels = torch.tensor(batch_samples['label'], dtype=torch.long).to(device)
+        all_labels.extend(labels.cpu().numpy())
 
         # Process embeddings based on model type
         if model_type == 'mlp':
@@ -66,9 +78,8 @@ def train(model, dataloader, clap_model, optimizer, criterion, scaler, device, m
                 loss = criterion(logits, labels)
         elif model_type == 'attention':
             E_a, E_c, E_h = process_embeddings_attention(clap_model, audio_files, captions_list, texts, device)
-
             with torch.cuda.amp.autocast():
-                logits = model(E_a, E_c, E_h)
+                logits = model(E_a, E_c, E_h)  # Adjusted for attention output
                 loss = criterion(logits, labels)
         else:
             raise ValueError("Invalid model type. Choose 'mlp' or 'attention'.")
@@ -79,6 +90,7 @@ def train(model, dataloader, clap_model, optimizer, criterion, scaler, device, m
 
         tloss += loss.item()
         preds = torch.argmax(logits, dim=1)
+        all_preds.extend(preds.cpu().numpy())
         tacc += (preds == labels).sum().item() / labels.size(0)
 
         batch_bar.set_postfix(
@@ -89,16 +101,16 @@ def train(model, dataloader, clap_model, optimizer, criterion, scaler, device, m
         batch_bar.update()
 
     batch_bar.close()
-    torch.cuda.empty_cache()
-    return tloss / len(dataloader), tacc / len(dataloader)
+    precision, recall, f1, accuracy = calculate_metrics(all_labels, all_preds)
+    return tloss / len(dataloader), precision, recall, f1, accuracy
 
-def validate(model, dataloader, clap_model, criterion, device, model_type):
+def validate(model, dataloader, clap_model, criterion, device, model_type, epoch):
     model.eval()
     vloss, vacc = 0, 0
     all_labels = []
     all_preds = []
 
-    batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True, leave=False, desc='Validate')
+    batch_bar = tqdm(total=len(dataloader), dynamic_ncols=True, leave=False, desc=f'Validate Epoch {epoch}')
 
     with torch.no_grad():
         for i, batch_samples in enumerate(dataloader):
@@ -107,7 +119,6 @@ def validate(model, dataloader, clap_model, criterion, device, model_type):
             texts = batch_samples['text']
             labels = torch.tensor(batch_samples['label'], dtype=torch.long).to(device)
 
-            # Process embeddings based on model type
             if model_type == 'mlp':
                 sample_embeddings = process_embeddings_mlp(clap_model, audio_files, captions_list, texts, device)
                 logits = model(sample_embeddings)
@@ -133,13 +144,12 @@ def validate(model, dataloader, clap_model, criterion, device, model_type):
             batch_bar.update()
 
     batch_bar.close()
-    torch.cuda.empty_cache()
-    val_f1 = f1_score(all_labels, all_preds, average='macro')
-    return vloss / len(dataloader), vacc / len(dataloader), val_f1
+    precision, recall, f1, accuracy = calculate_metrics(all_labels, all_preds)
+    return vloss / len(dataloader), precision, recall, f1, accuracy
 
 def test(model, dataloader, clap_model, criterion, device, model_type):
     model.eval()
-    test_loss, test_acc = 0, 0
+    test_loss = 0
     all_labels = []
     all_preds = []
 
@@ -151,6 +161,7 @@ def test(model, dataloader, clap_model, criterion, device, model_type):
             captions_list = batch_samples['captions']
             texts = batch_samples['text']
             labels = torch.tensor(batch_samples['label'], dtype=torch.long).to(device)
+            all_labels.extend(labels.cpu().numpy())
 
             # Process embeddings based on model type
             if model_type == 'mlp':
@@ -163,20 +174,19 @@ def test(model, dataloader, clap_model, criterion, device, model_type):
                 raise ValueError("Invalid model type. Choose 'mlp' or 'attention'.")
 
             loss = criterion(logits, labels)
-
             test_loss += loss.item()
             preds = torch.argmax(logits, dim=1)
-            test_acc += (preds == labels).sum().item() / labels.size(0)
-
-            all_labels.extend(labels.cpu().numpy())
             all_preds.extend(preds.cpu().numpy())
 
             batch_bar.set_postfix(
                 loss="{:.04f}".format(test_loss / (i + 1)),
-                acc="{:.04f}%".format(test_acc * 100 / (i + 1))
+                acc="{:.04f}%".format(accuracy_score(all_labels, all_preds) * 100)
             )
             batch_bar.update()
 
     batch_bar.close()
-    test_f1 = f1_score(all_labels, all_preds, average='macro')
-    return test_loss / len(dataloader), test_acc / len(dataloader), test_f1
+
+    # Calculate metrics
+    precision, recall, f1, accuracy = calculate_metrics(all_labels, all_preds)
+
+    return test_loss / len(dataloader), precision, recall, f1, accuracy

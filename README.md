@@ -17,8 +17,8 @@ python main.py -m test -c config.yaml -md attention
 •	-md: Chooses the model to use (mlp or attention).  
 
 ## Results
-
-| Model | Accuracy | F1 Score | Precision | Recall |
+| Model | Accuracy | Precision | Recall | F1 Score |
 | --- | --- | --- | --- | --- |
-| MLP | 90.93% | 0.9087 | \ | \ |
-| Attention | 91.2% | 0.913 | \ | \ |
+| Baseline | 0.8640 | 0.8671 | 0.8640 | 0.8647 |
+| MLP | 0.8737 | 0.8760 | 0.8737 | 0.8742 |
+| **Attention** | **0.8927** | **0.8921** | **0.8923** | **0.8921** |
