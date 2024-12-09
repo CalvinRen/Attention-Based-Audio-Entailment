@@ -1,5 +1,8 @@
 # Configuration parameters
 
+# Wandb
+wandb_run_name: 'Attention Model'
+
 # Data paths
 train_csv: '/home/ubuntu/Attention_Based_Audio_Entailment/AudioEntailment_Dataset/clotho_development_gpt4.csv'
 val_csv: '/home/ubuntu/Attention_Based_Audio_Entailment/AudioEntailment_Dataset/clotho_evaluation_gpt4.csv'
@@ -13,9 +16,9 @@ test_audio_dir: '/home/ubuntu/Attention_Based_Audio_Entailment/data/validation'
 model_save_path: '/home/ubuntu/Attention_Based_Audio_Entailment/checkpoints/best_model.pth'
 
 # Training parameters
-batch_size: 128
+batch_size: 256
 learning_rate: 0.0001
-num_epochs: 20
+num_epochs: 15
 hidden_dim: 512
 num_classes: 3
 
@@ -25,8 +28,9 @@ text_embed_dim: 1024
 
 # Attention model parameters
 embed_dim: 1024           # Dimension of the input embeddings
-attention_dim: 128       # Dimension of the attention model
+attention_dim: 256       # Dimension of the attention model
 num_heads: 4             # Number of attention heads
 num_layers: 2            # Number of transformer encoder layers
-dim_feedforward: 2048    # Dimension of the feedforward network in the transformer
-dropout: 0.1             # Dropout rate
+dim_feedforward: 1024    # Dimension of the feedforward network in the transformer
+dropout: 0.2             # Dropout rate
+use_positional_encoding: True  # Whether to use positional encoding in the transformer
